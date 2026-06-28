@@ -82,6 +82,7 @@ trait ActiveDirectoryCommon
 
     protected function userFilter($username)
     {
+        $username = ldap_escape($username, '', LDAP_ESCAPE_FILTER);
         // don't return disabled users
         $user_filter = "(&(samaccountname=$username)(!(useraccountcontrol:1.2.840.113556.1.4.803:=2))";
 
@@ -96,6 +97,7 @@ trait ActiveDirectoryCommon
 
     protected function groupFilter($groupname)
     {
+        $groupname = ldap_escape($groupname, '', LDAP_ESCAPE_FILTER);
         $group_filter = "(samaccountname=$groupname)";
 
         $extra = LibrenmsConfig::get('auth_ad_group_filter');
