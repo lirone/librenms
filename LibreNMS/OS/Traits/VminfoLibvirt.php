@@ -31,6 +31,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use LibreNMS\Enum\PowerState;
+use Symfony\Component\Process\Process;
 
 trait VminfoLibvirt
 {
@@ -64,24 +65,26 @@ trait VminfoLibvirt
             if (Str::contains($method, 'ssh') && ! $ssh_ok) {
                 // Check if we are using SSH if we can log in without password - without blocking the discovery
                 // Also automatically add the host key so discovery doesn't block on the yes/no question, and run echo so we don't get stuck in a remote shell ;-)
-                exec('ssh -o "StrictHostKeyChecking no" -o "PreferredAuthentications publickey" -o "IdentitiesOnly yes" ' . escapeshellarg((string) $userHostname) . ' echo -e', $out, $ret);
-                if ($ret != 255) {
+                $sshProcess = new Process(['ssh', '-o', 'StrictHostKeyChecking no', '-o', 'PreferredAuthentications publickey', '-o', 'IdentitiesOnly yes', (string) $userHostname, 'echo', '-e']);
+                $sshProcess->run();
+                if ($sshProcess->getExitCode() !== 255) {
                     $ssh_ok = 1;
                 }
             }
 
             if ($ssh_ok || ! Str::contains($method, 'ssh')) {
                 // Fetch virtual machine list
-                unset($domlist);
-                exec(escapeshellarg(LibrenmsConfig::get('virsh')) . ' -rc ' . escapeshellarg($uri) . ' list', $domlist);
+                $listProcess = new Process([LibrenmsConfig::get('virsh'), '-rc', $uri, 'list']);
+                $listProcess->run();
+                $domlist = array_filter(explode("\n", trim($listProcess->getOutput())));
 
                 foreach ($domlist as $dom) {
                     [$dom_id] = explode(' ', trim($dom), 2);
 
                     if (is_numeric($dom_id)) {
                         // Fetch the Virtual Machine information.
-                        unset($vm_info_array);
-                        exec(escapeshellarg(LibrenmsConfig::get('virsh')) . ' -rc ' . escapeshellarg($uri) . ' dumpxml ' . $dom_id, $vm_info_array);
+                        $dumpxmlProcess = new Process([LibrenmsConfig::get('virsh'), '-rc', $uri, 'dumpxml', (string) $dom_id]);
+                        $dumpxmlProcess->run();
 
                         // Example xml:
                         // <domain type='kvm' id='3'>
@@ -99,14 +102,15 @@ trait VminfoLibvirt
                         // (...)
                         // See spec at https://libvirt.org/formatdomain.html
 
-                        // Convert array to string
-                        $vm_info_xml = implode('', $vm_info_array);
+                        $vm_info_xml = $dumpxmlProcess->getOutput();
 
                         $xml = simplexml_load_string('<?xml version="1.0"?> ' . $vm_info_xml);
                         Log::debug($xml);
 
                         // libvirt does not supply this
-                        exec(escapeshellarg(LibrenmsConfig::get('virsh')) . ' -rc ' . escapeshellarg($uri) . ' domstate ' . escapeshellarg($dom_id), $vm_state);
+                        $domstateProcess = new Process([LibrenmsConfig::get('virsh'), '-rc', $uri, 'domstate', (string) $dom_id]);
+                        $domstateProcess->run();
+                        $vm_state = explode("\n", rtrim($domstateProcess->getOutput()));
                         $vmwVmState = PowerState::STATES[strtolower($vm_state[0])] ?? PowerState::UNKNOWN;
 
                         $vmwVmMemSize = $xml->memory;
