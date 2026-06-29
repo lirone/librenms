@@ -263,9 +263,7 @@ class ActiveDirectoryAuthorizer extends AuthorizerBase
             return $bind_result;
         }
 
-        ldap_set_option($this->ldap_connection, LDAP_OPT_NETWORK_TIMEOUT, LibrenmsConfig::get('auth_ad_timeout', 5));
-        ldap_bind($this->ldap_connection);
-        ldap_set_option($this->ldap_connection, LDAP_OPT_NETWORK_TIMEOUT, -1); // restore timeout
+        throw new AuthenticationException('LDAP bind failed: ' . ldap_error($this->ldap_connection));
     }
 
     protected function getConnection(): ?Connection
