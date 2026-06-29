@@ -150,9 +150,11 @@ class IRCBot
 
         foreach ($this->config['irc_external'] as $ext) {
             $this->log("Command $ext...");
-            if (($this->external[$ext] = file_get_contents('includes/ircbot/' . $ext . '.inc.php')) == '') {
+            $filepath = 'includes/ircbot/' . $ext . '.inc.php';
+            if (file_exists($filepath) && filesize($filepath) > 0) {
+                $this->external[$ext] = $filepath;
+            } else {
                 $this->log('failed!');
-                unset($this->external[$ext]);
             }
         }
 
@@ -230,7 +232,7 @@ class IRCBot
         } else {
             $f = $this->config['install_dir'] . '/.ircbot.alert';
         }
-        if ((file_exists($f) && filetype($f) != 'fifo' && ! unlink($f)) || (! file_exists($f) && ! shell_exec("mkfifo $f && echo 1"))) {
+        if ((file_exists($f) && filetype($f) != 'fifo' && basename($f) === '.ircbot.alert' && ! unlink($f)) || (! file_exists($f) && basename($f) === '.ircbot.alert' && ! shell_exec("mkfifo $f && echo 1"))) {  // nosemgrep: php.lang.security.unlink-use.unlink-use
             $this->log('Error - Cannot create Alert-File');
 
             return false;
@@ -485,7 +487,7 @@ class IRCBot
             $this->chkdb();
             $this->log($command . " ( '" . $params . "' ) [Ext]");
 
-            return eval($this->external[$command]);
+            return include $this->external[$command];
         }
 
         return false;
