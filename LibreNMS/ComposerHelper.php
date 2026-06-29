@@ -30,6 +30,7 @@ use Composer\Script\Event;
 use LibreNMS\Exceptions\FileWriteFailedException;
 use LibreNMS\Util\EnvHelper;
 use Minishlink\WebPush\VAPID;
+use Symfony\Component\Process\Process;
 
 class ComposerHelper
 {
@@ -151,24 +152,13 @@ class ComposerHelper
 
     private static function setPermissions(): void
     {
-        self::exec([
-            'cd ' . realpath(__DIR__ . '/../..'),
-            'setfacl -R -m g::rwx rrd/ logs/ storage/ bootstrap/cache/',
-            'setfacl -d -m g::rwx rrd/ logs/ storage/ bootstrap/cache/',
-        ]);
-    }
-
-    /**
-     * Run a command or array of commands and echo the command and output
-     *
-     * @param  string[]  $cmds
-     */
-    private static function exec(array $cmds): int
-    {
-        $cmd = "set -v\n" . implode(PHP_EOL, $cmds);
-        passthru($cmd, $result_code);
-
-        return $result_code;
+        $baseDir = realpath(__DIR__ . '/../..');
+        foreach ([
+            ['setfacl', '-R', '-m', 'g::rwx', 'rrd/', 'logs/', 'storage/', 'bootstrap/cache/'],
+            ['setfacl', '-d', '-m', 'g::rwx', 'rrd/', 'logs/', 'storage/', 'bootstrap/cache/'],
+        ] as $cmd) {
+            (new Process($cmd, $baseDir))->run();
+        }
     }
 
     /**
@@ -178,16 +168,14 @@ class ComposerHelper
      */
     private static function execComposerCommand(array $command, array $env = []): int
     {
-        $cli = [];
-        foreach ($env as $key => $value) {
-            $cli[] = "$key=$value";
-        }
-        $cli[] = PHP_BINARY;
-        $cli[] = realpath(__DIR__ . '/../scripts/composer_wrapper.php');
+        $args = [PHP_BINARY, realpath(__DIR__ . '/../scripts/composer_wrapper.php')];
         foreach ($command as $word) {
-            $cli[] = escapeshellarg($word);
+            $args[] = $word;
         }
+        $envVars = array_merge(getenv(), array_map('strval', $env));
+        $process = (new Process($args, null, $envVars))->setTty(Process::isTtySupported());
+        $process->run();
 
-        return self::exec([implode(' ', $cli)]);
+        return $process->getExitCode() ?? 1;
     }
 }
