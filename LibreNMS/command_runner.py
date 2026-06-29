@@ -629,14 +629,14 @@ def deferred_command(command, defer_time=300):
     """
     # Use ping as a standard timer in shell since it's present on virtually *any* system
     if os.name == "nt":
-        deferrer = "ping 127.0.0.1 -n {} > NUL & ".format(defer_time)
+        deferrer = "ping 127.0.0.1 -n {} > NUL & ".format(int(defer_time))
     else:
-        deferrer = "ping 127.0.0.1 -c {} > /dev/null && ".format(defer_time)
+        deferrer = "ping 127.0.0.1 -c {} > /dev/null && ".format(int(defer_time))
 
     # We'll create a independent shell process that will not be attached to any stdio interface
     # Our command shall be a single string since shell=True
     subprocess.Popen(
-        deferrer + command,
+        deferrer + shlex.quote(command),
         shell=True,
         stdin=None,
         stdout=None,
