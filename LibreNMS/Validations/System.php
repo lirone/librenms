@@ -41,8 +41,8 @@ class System extends BaseValidation
     {
         $install_dir = $validator->getBaseDir();
 
-        $lnms = str_replace('lnms:', '', rtrim((string) `whereis -b lnms 2>/dev/null`));
-        $path = rtrim((string) `echo "\$PATH"`);
+        $lnms = str_replace('lnms:', '', rtrim((string) shell_exec('whereis -b lnms 2>/dev/null')));
+        $path = rtrim((string) getenv('PATH'));
 
         // if couldn't find lnms and we have PATH
         if (empty($lnms) && ! empty($path)) {
