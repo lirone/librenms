@@ -65,8 +65,10 @@ class Python extends BaseValidation
 
     private function checkPipVersion(Validator $validator, $version)
     {
-        preg_match('/\(python ([0-9.]+)\)/', (string) `pip3 --version 2>/dev/null`, $matches);
-        $pip = $matches[1];
+        $process = new Process(['pip3', '--version']);
+        $process->run();
+        preg_match('/\(python ([0-9.]+)\)/', $process->getOutput(), $matches);
+        $pip = $matches[1] ?? null;
         $python = implode('.', array_slice(explode('.', (string) $version), 0, 2));
         if ($pip && version_compare($python, $pip, '!=')) {
             $validator->fail("python3 ($python) and pip3 ($pip) versions do not match.  This likely will cause dependencies to be installed for the wrong python version.");
