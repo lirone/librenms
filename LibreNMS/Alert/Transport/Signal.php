@@ -24,16 +24,21 @@
 namespace LibreNMS\Alert\Transport;
 
 use LibreNMS\Alert\Transport;
+use Symfony\Component\Process\Process;
 
 class Signal extends Transport
 {
     public function deliverAlert(array $alert_data): bool
     {
-        exec(escapeshellarg((string) $this->config['path'])
-           . ' --dbus-system send'
-           . (($this->config['recipient-type'] == 'group') ? ' -g ' : ' ')
-           . escapeshellarg((string) $this->config['recipient'])
-           . ' -m ' . escapeshellarg((string) $alert_data['title']));
+        $cmd = [(string) $this->config['path'], '--dbus-system', 'send'];
+        if ($this->config['recipient-type'] == 'group') {
+            $cmd[] = '-g';
+        }
+        $cmd[] = (string) $this->config['recipient'];
+        $cmd[] = '-m';
+        $cmd[] = (string) $alert_data['title'];
+
+        (new Process($cmd))->run();
 
         return true;
     }
