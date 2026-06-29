@@ -30,6 +30,7 @@ use ErrorException;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\Artisan;
 use LibreNMS\Exceptions\FileWriteFailedException;
+use Symfony\Component\Process\Process;
 
 class EnvHelper
 {
@@ -123,7 +124,9 @@ class EnvHelper
 
                 $key = null;
                 if (php_sapi_name() == 'cli') {
-                    $key = trim(exec(PHP_BINARY . ' ' . base_path('artisan') . ' key:generate --show --no-ansi'));
+                    $process = new Process([PHP_BINARY, base_path('artisan'), 'key:generate', '--show', '--no-ansi']);
+                    $process->run();
+                    $key = trim($process->getOutput());
                 } else {
                     if (Artisan::call('key:generate', [
                         '--show' => 'true',
